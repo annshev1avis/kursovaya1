@@ -1,8 +1,9 @@
 import sys
-from PyQt6.QtWidgets import QApplication, QRadioButton, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
+from PyQt6.QtWidgets import QApplication, QRadioButton, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout, QAbstractScrollArea
 from PyQt6.QtGui import QPalette, QColor
 from PyQt6.uic import loadUi
 #from MainWindow import MainWindow
+from my_class_lib import Vacancy
 
 class Candidat_header(QWidget):
     def __init__(self, fio, age):
@@ -39,7 +40,7 @@ class CV_viewer(QWidget):
         self.main_layout.addWidget(self.showing_candidat)
         self.setLayout(self.main_layout)
 
-class Vacancy:
+"""class Vacancy:
     def __init__(self, name):
         self.name = name
         self.radio_button = QRadioButton(name)
@@ -50,6 +51,7 @@ class Vacancy:
         main_layout.addWidget(QLabel('Здесь будут кандидаты'))
         main_layout.addWidget(QLabel('Здесь будет большое окно для выбранного кандидата'))
         self.big_widget.setLayout(main_layout)
+"""
 
 
 
@@ -59,9 +61,11 @@ class MainWindow(QWidget):
         #loadUi("uis/MainWindow.ui", self)"""
 
         #ВАКАНСИИ
-        designer = Vacancy('designer')
+        designer = Vacancy('designer', '2 недели', 'active', self)
+        cleaner = Vacancy('cleaner', 'месяц', 'active', self)
+        vacancy_lst = [designer, cleaner]
 
-        main_layout = QHBoxLayout()
+        self.main_layout = QHBoxLayout()
 
         #КОЛОНКА ВАКАНСИИ СЛЕВА
         vacancies_column = QVBoxLayout()
@@ -75,22 +79,39 @@ class MainWindow(QWidget):
         open_arhiv.addWidget(self.arhiv_button)
         vacancies_column.addLayout(open_arhiv)
 
-        vacancies_column.addWidget(designer.radio_button)
-        """#таблица с вакансиями
+
+        #таблица с вакансиями
         self.vacancies = QTableWidget()
+        self.vacancies.resizeColumnsToContents()
         vacancies_column.addWidget(self.vacancies)
-        self.vacancies.setRowCount(1)
         self.vacancies.setColumnCount(1)
-        self.vacancies.setCellWidget(0, 0, QPushButton('Дизайнер'))"""
+        self.vacancies.setRowCount(len(vacancy_lst))
+        for i, v in enumerate(vacancy_lst):
+            self.vacancies.setCellWidget(i, 0, v.menu_widget)
 
         #кнопка Новая вакансия
         self.new_vacancy_button = QPushButton('Новая вакансия')
         vacancies_column.addWidget(self.new_vacancy_button)
 
+        #часть окна справа
+        right_part = QVBoxLayout()
+        statuses = QHBoxLayout()
+
+
         #установка main_layout
-        main_layout.addLayout(vacancies_column)
-        main_layout.addWidget(QLabel('ЗДЕСЬ БУДЕТ КАСТОМНЫЙ ВИДЖЕТ'))
-        self.setLayout(main_layout)
+        self.main_layout.addLayout(vacancies_column)
+        #self.main_layout.addWidget(QLabel('ЗДЕСЬ БУДЕТ КАСТОМНЫЙ ВИДЖЕТ'))
+        self.setLayout(self.main_layout)
+
+class MyWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setGeometry(100, 100, 100, 100)
+        self.setStyleSheet('background-color: red;')
+        self.mouseReleaseEvent = self.p
+
+    def p(self, event):
+        print('+')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
