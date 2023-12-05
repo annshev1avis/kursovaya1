@@ -1,6 +1,10 @@
-from PyQt6.QtWidgets import QComboBox, QMenu, QApplication, QRadioButton, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
+from PyQt6.QtWidgets import QComboBox, QMessageBox, QMenu, QApplication, QRadioButton, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
 import PyQt6.QtCore as QtCore
 import sqlite3
+import tempfile
+from PyQt6.QtCore import QProcess
+import os
+import subprocess
 
 class NewZametkaDialog(QDialog):
     def __init__(self, parent):
@@ -17,10 +21,10 @@ class NewZametkaDialog(QDialog):
         self.setLayout(layout)
 
     def ok(self):
-        candidate_id, text = self.parent.candidate_parent.id, self.zametka_lineedit.text()
+        zayavka_id, text = self.parent.candidate_parent.zayavka_id, self.zametka_lineedit.text()
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f'''insert into zametka(zametka_text, candidat_id) values(?, ?)''', (text, candidate_id))
+            cur.execute(f'''insert into zametka(text, zayavka_id) values(?, ?)''', (text, zayavka_id))
         self.close()
 
 class Zametka_widget(QWidget):
@@ -46,22 +50,27 @@ class Zametka_widget(QWidget):
 
 class Candidat_big_widget(QWidget):
     etaps = ('resume', 'tel', 'sobes', 'offer', 'otkaz')
-    def __init__(self, name, surname, age, job, doc, candidate_parent):
+
+    def __init__(self, candidate_parent):
         super().__init__()
 
         self.main_layout = QVBoxLayout()
         self.candidate_parent = candidate_parent
 
         #основная информация о кандидате
-        self.fio_label = QLabel(name + ' ' + surname)
-        self.job_label = QLabel(job)
-        self.age_label = QLabel(str(age))
-        self.doc = doc
+        #добавить отчество
+        self.fio_label = QLabel(candidate_parent.surname + ' ' + candidate_parent.name + ' ')
+        self.age_label = QLabel(str(candidate_parent.age))
+        self.doc = candidate_parent.doc
         self.main_layout.addWidget(self.fio_label)
-        self.main_layout.addWidget(self.job_label)
         self.main_layout.addWidget(self.age_label)
+        self.main_layout.addWidget(QLabel(candidate_parent.email))
+        self.main_layout.addWidget(QLabel(candidate_parent.tel))
         #self.main_layout.addStretch()
 
+        self.resume_button = QPushButton('Открыть резюме в PDF')
+        self.resume_button.clicked.connect(self.open_resume)
+        self.main_layout.addWidget(self.resume_button)
         #заметки
         zametki_label_button = QHBoxLayout()
         zametki_label_button.addWidget(QLabel('Заметки'))
@@ -80,6 +89,7 @@ class Candidat_big_widget(QWidget):
 
         #сменить этап
         otkaz_next_buttons = QHBoxLayout()
+        print('<', self.candidate_parent.status, '>')
         if self.candidate_parent.status == 'otkaz':
             self.return_button = QPushButton('Вернуть в статус Резюме')
             self.return_button.clicked.connect(self.return_to_resume)
@@ -88,42 +98,74 @@ class Candidat_big_widget(QWidget):
             self.otkaz_button = QPushButton('Отказ')
             self.otkaz_button.clicked.connect(self.make_otkaz_status)
             otkaz_next_buttons.addWidget(self.otkaz_button)
-            if self.candidate_parent.status != 'offer':
-                self.next_etap_button = QPushButton('На следующий этап')
-                self.next_etap_button.clicked.connect(self.next_etap)
-                otkaz_next_buttons.addWidget(self.next_etap_button)
+        elif self.candidate_parent.status != 'offer':
+            self.otkaz_button = QPushButton('Отказ')
+            self.otkaz_button.clicked.connect(self.make_otkaz_status)
+            otkaz_next_buttons.addWidget(self.otkaz_button)
+            self.next_etap_button = QPushButton('На следующий этап')
+            self.next_etap_button.clicked.connect(self.next_etap)
+            otkaz_next_buttons.addWidget(self.next_etap_button)
         self.main_layout.addLayout(otkaz_next_buttons)
 
-
+        """как оказалось ненужный функционал
         #перейти к кандидату
         self.go_to_candidat = QPushButton('Перейти к кандидату')
-        self.main_layout.addWidget(self.go_to_candidat)
+        self.main_layout.addWidget(self.go_to_candidat)"""
 
         self.setLayout(self.main_layout)
         print('bigwid created')
 
+    def open_resume(self):
+        #читается файл из бд
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            cur.execute(f"""select doc from candidate where id={self.candidate_parent.id}""")
+            doc = cur.fetchall()[0][0]
+            print(doc)
+
+        if doc != None:
+            #создается временный файл из байтовых данных doc
+            temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+            temp_file.write(doc)
+            temp_file.close()
+
+            #файл открывается в акробате
+            file_path = temp_file.name
+            app_path = 'C:/Program Files/Adobe/Acrobat DC/Acrobat/Acrobat.exe'
+            print(file_path)
+            try:
+                subprocess.Popen([app_path, file_path])
+            except FileNotFoundError:
+                QMessageBox.warning(self, 'Ошибка', 'Не удалось найти программу для открытия PDF.')
+        else:
+            print('error')
+            QMessageBox.warning(self, 'Ошибка', 'Нет файла')
+
     def make_otkaz_status(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update candidat set status='otkaz' where id={self.candidate_parent.id}""")
+            cur.execute(f"""update zayavka set status='otkaz' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
+            print('otkaz norm')
 
     def next_etap(self):
         cur_etap_index = self.etaps.index(self.candidate_parent.status)
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update candidat set status='{self.etaps[cur_etap_index+1]}' where id={self.candidate_parent.id}""")
+            cur.execute(f"""update zayavka set status='{self.etaps[cur_etap_index+1]}' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
+            print('next norm')
 
     def return_to_resume(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update candidat set status='resume' where id={self.candidate_parent.id}""")
+            cur.execute(f"""update zayavka set status='resume' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
+            print('ret norm')
 
     def load_zametki(self):
         print('=')
         print(self.candidate_parent.id)
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""select id, zametka_text from zametka where candidat_id={self.candidate_parent.id}""")
+            cur.execute(f"""select id, text from zametka where zayavka_id={self.candidate_parent.zayavka_id}""")
             zam_lst = cur.fetchall()
 
         print(zam_lst)
@@ -140,13 +182,12 @@ class Candidat_big_widget(QWidget):
 
 
 class Candidate_menu_widget(QWidget):
-    def __init__(self, name, surname, age, job, candidate_parent):
+    def __init__(self, name, surname, age, candidate_parent):
         super().__init__()
         self.candidate_parent = candidate_parent
 
         layout = QVBoxLayout()
-        layout.addWidget(QLabel(surname+name))
-        layout.addWidget(QLabel(job))
+        layout.addWidget(QLabel(surname + ' ' + name))
         layout.addWidget(QLabel(str(age)))
         watched = 'просмотрено' if self.candidate_parent.watched == 1 else 'непросмотрено'
         self.watched_label = QLabel(watched)
@@ -160,7 +201,7 @@ class Candidate_menu_widget(QWidget):
             self.watched_label.setText('просмотрено')
             with sqlite3.connect('database.db') as con:
                 cur = con.cursor()
-                cur.execute(f'update candidat set watched=1 where id={self.candidate_parent.id}')
+                cur.execute(f'update zayavka set watched=1 where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}')
         big_widget = self.candidate_parent.create_big_widget()
         self.candidate_parent.vacancy.window_part.insert_big_widget(big_widget)
 
@@ -175,22 +216,33 @@ class Candidate_menu_widget(QWidget):
     def delete_candidate(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f'delete from candidat where id={self.candidate_parent.id}')
+            cur.execute(f'delete from zayavka where id={self.candidate_parent.zayavka_id}')
 
+#теперь это заявка
 class Candidate:
-    def __init__(self, id, name, surname, age, job, doc, status, watched, vacancy):
-        self.id = id   #id кандидата в бд, для взаимодействия с бд
-        self.name = name
-        self.surname = surname
-        self.age = age
-        self.job = job
-        self.doc = doc
-        self.status = status
-        self.watched = watched
-        self.vacancy = vacancy #вакансия, в которой создается этот экземпляр Candidate (для того, чтобы менять Vacancy_window_part)
+    def __init__(self, candidate_id, watched, status, zayavka_id, vacancy):
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            cur.execute(f'''select surname, name, otchestvo, age, doc, email, tel from candidate where id={candidate_id}''')
+            res = cur.fetchall()[0]
+            print(res)
 
-        self.menu_widget = Candidate_menu_widget(self.name, self.surname, self.age, self.job, self)
+        self.id = candidate_id   #id кандидата в бд, для взаимодействия с бд
+        self.surname = res[0]
+        self.name = res[1]
+        self.otchestvo = res[2]
+        self.age = res[3]
+        self.doc = res[4]
+        self.email = res[5]
+        self.tel = res[6]
+        self.watched = watched
+        self.status = status
+        self.zayavka_id = zayavka_id
+        self.vacancy = vacancy #вакансия, в которой создается этот экземпляр Candidate (для того, чтобы менять Vacancy_window_part)
+        self.menu_widget = Candidate_menu_widget(self.name, self.surname, self.age, self)
         print('can created')
+
     def create_big_widget(self):
-        self.big_widget = Candidat_big_widget(self.name, self.surname, self.age, self.job, self.doc, self)
+        #self.big_widget = Candidat_big_widget(self.name, self.surname, self.otchestvo, self.age, self.email, self.tel, self.doc, self)
+        self.big_widget = Candidat_big_widget(self)
         return self.big_widget

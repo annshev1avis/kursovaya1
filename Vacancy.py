@@ -1,6 +1,6 @@
 import sqlite3
 
-from PyQt6.QtWidgets import QApplication, QComboBox, QSpacerItem, QSizePolicy, QRadioButton, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
+from PyQt6.QtWidgets import QFileDialog, QMenu, QComboBox, QSpacerItem, QSizePolicy, QRadioButton, QMainWindow, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
 from Candidat import Candidate
 import sqlite3 as sq
 
@@ -14,6 +14,13 @@ class New_candidate_dialog(QDialog):
 
         main_layout.addWidget(QLabel('Новый кандидат'))
 
+        # фамилия
+        self.surname_lineedit = QLineEdit()
+        surname = QHBoxLayout()
+        surname.addWidget(QLabel('Фамилия:'))
+        surname.addWidget(self.surname_lineedit)
+        main_layout.addLayout(surname)
+
         #имя
         self.name_lineedit = QLineEdit()
         name = QHBoxLayout()
@@ -21,19 +28,12 @@ class New_candidate_dialog(QDialog):
         name.addWidget(self.name_lineedit)
         main_layout.addLayout(name)
 
-        #фамилия
-        self.surname_lineedit = QLineEdit()
-        surname = QHBoxLayout()
-        surname.addWidget(QLabel('Фамилия:'))
-        surname.addWidget(self.surname_lineedit)
-        main_layout.addLayout(surname)
-
-        #профессия
-        self.profession_lineedit = QLineEdit()
-        profession = QHBoxLayout()
-        profession.addWidget(QLabel('Профессия:'))
-        profession.addWidget(self.profession_lineedit)
-        main_layout.addLayout(profession)
+        #отчество
+        self.otchestvo_lineedit = QLineEdit()
+        otchestvo = QHBoxLayout()
+        otchestvo.addWidget(QLabel('Отчество:'))
+        otchestvo.addWidget(self.otchestvo_lineedit)
+        main_layout.addLayout(otchestvo)
 
         #возраст
         self.age_lineedit = QLineEdit()
@@ -42,13 +42,46 @@ class New_candidate_dialog(QDialog):
         age.addWidget(self.age_lineedit)
         main_layout.addLayout(age)
 
+        # email
+        self.email_lineedit = QLineEdit()
+        email = QHBoxLayout()
+        email.addWidget(QLabel('Email:'))
+        email.addWidget(self.email_lineedit)
+        main_layout.addLayout(email)
+
+        #телефон
+        self.tel_lineedit = QLineEdit()
+        tel = QHBoxLayout()
+        tel.addWidget(QLabel('Номер телефона:'))
+        tel.addWidget(self.tel_lineedit)
+        main_layout.addLayout(tel)
+
+        #загрузить pdf файл
+        self.upload_resume_button = QPushButton('Загрузить резюме')
+        self.upload_resume_button.clicked.connect(self.upload_resume)
+        main_layout.addWidget(self.upload_resume_button)
+
         self.ok_button = QPushButton('ОК')
         self.ok_button.clicked.connect(self.create_candidate)
         main_layout.addWidget(self.ok_button)
 
+    def upload_resume(self):
+        print('upload_resume')
+        filedialog = QFileDialog(self)
+        print(0)
+        filedialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        print(0)
+        if filedialog.exec():
+            fileNames = filedialog.selectedFiles()
+        file_path = fileNames[0]
+        with open(file_path) as file:
+            self.doc = file.read()
+
     def create_candidate(self):
-        name, surname, profession, age, doc = self.name_lineedit.text(), self.surname_lineedit.text(), \
-            self.profession_lineedit.text(), self.age_lineedit.text(), None
+        doc = getattr(self, 'doc', None)
+        name, surname, otchestvo, age, email, tel = self.name_lineedit.text(), self.surname_lineedit.text(), \
+            self.otchestvo_lineedit.text(), self.age_lineedit.text(), self.email_lineedit.text(), \
+            self.tel_lineedit.text()
         try:
             age = int(age)
         except:
@@ -58,10 +91,33 @@ class New_candidate_dialog(QDialog):
             msgdlg.setLayout(layout)
             msgdlg.exec()
             return
+
+        #проверяет наличие кандидата в базе
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute('''insert into candidat(name, surname, age, job, doc, vacancy_id, status) values(?, ?, ?, ?, ?, ?, ?)''',
-                        (name, surname, age, profession, doc, self.parent.vacancy_parent.id, 'resume'))
+            cur.execute(f'''select * from candidate where surname='{surname}' and name='{name}' and otchestvo='{otchestvo}'
+                            and age={age} and email='{email}' ''')
+            res = cur.fetchall()
+
+        if len(res) == 0: #если такого кандидата нет
+            with sqlite3.connect('database.db') as con:
+                cur = con.cursor()
+                cur.execute(f'''insert into candidate (surname, name, otchestvo, age, doc, email, tel) 
+                            values(?, ?, ?, ?, ?, ?, ?)''', (surname, name, otchestvo, age, doc, email, tel))
+
+                cur.execute(
+                    f'''select * from candidate where surname='{surname}' and name='{name}' and otchestvo='{otchestvo}'
+                                            and age={age} and email='{email}' ''')
+                res = cur.fetchall()
+
+        cand_id = res[0][0]
+        print(cand_id)
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            print(self.parent, self.parent.vacancy_parent.id)
+            cur.execute(f'''insert into zayavka (vacancy_id, candidate_id) 
+                        values(?, ?)''', (self.parent.vacancy_parent.id, cand_id))
+
         self.close()
 
 
@@ -121,6 +177,7 @@ class Vacancy_window_part(QWidget):
         self.main_layout.addLayout(self.candidates_part)
 
         self.setLayout(self.main_layout)
+        self.load_candidates('resume')
 
     """3 метода с сортировкой: принимает - list; возвращает - list
     используется исключительно в self.load_candidates"""
@@ -147,6 +204,7 @@ class Vacancy_window_part(QWidget):
         """can_lst - список объектов типа Candidate"""
         for i in range(len(can_lst) - 1):
             for j in range(len(can_lst) - i - 1):
+                print(can_lst[j].surname[0].lower(), can_lst[j+1].surname[0].lower())
                 if can_lst[j].surname[0].lower() > can_lst[j+1].surname[0].lower():
                     can_lst[j], can_lst[j+1] = can_lst[j+1], can_lst[j]
         return can_lst
@@ -207,11 +265,17 @@ class Vacancy_window_part(QWidget):
 
         with sq.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"select id, name, surname, age, job, doc, status, watched from candidat where status='{status}' and vacancy_id={self.vacancy_parent.id}")
+            print('here')
+            cur.execute(f"select candidate_id, watched, status, id from zayavka where status='{status}' and vacancy_id={self.vacancy_parent.id}")
+            print('no crash')
             candidates_lst = cur.fetchall()
+            print(candidates_lst)
 
-        candidates_lst = [Candidate(can[0], can[1], can[2], can[3], can[4], can[5], can[6], can[7], self.vacancy_parent) for can in candidates_lst]
+        print('+')
+        candidates_lst = [Candidate(can[0], can[1], can[2], can[3], self.vacancy_parent) for can in candidates_lst]
+        print('+')
         candidates_lst = sorting(candidates_lst)
+
 
         self.candidates.setRowCount(len(candidates_lst))
         for i, c in enumerate(candidates_lst):
@@ -225,6 +289,7 @@ class Vacancy_menu_widget(QWidget):
         super().__init__()
         #ссылка на главное окно, чтобы была возможность его изменять
         self.vacancy_parent = parent
+        #self.setStyleSheet('background: grey; border: 1px solid grey; border-radius: 5px;')
 
         #внешний вид
         layout = QVBoxLayout()
@@ -241,7 +306,10 @@ class Vacancy_menu_widget(QWidget):
         self.vacancy_parent.main_window.main_layout.addWidget(self.vacancy_parent.window_part)
 
     def contextMenuEvent(self, event):
+        print('!!!')
         self.context_menu = QMenu(self)
+        print('=')
+        print(self.vacancy_parent.status)
         if self.vacancy_parent.status == 'open':
             change_status_act = self.context_menu.addAction('Закрыть')
             change_status_act.triggered.connect(self.close_vacancy)
@@ -288,4 +356,3 @@ class Vacancy:
         """создает часть окна и возвращает её"""
         self.window_part = Vacancy_window_part(self) #если атрибута нет, то он создается; если есть, то перезаписывается
         return self.window_part
-        
