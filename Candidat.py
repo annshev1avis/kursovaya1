@@ -6,6 +6,29 @@ from PyQt6.QtCore import QProcess
 import os
 import subprocess
 
+class Make_sobes_dialog(QDialog):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.setWindowTitle('Собеседование')
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+        main_layout.addWidget(QLabel('Назначить собеседование'))
+        main_layout.addWidget(QLabel('Введите дату в формате YYYY-MM-DD HH:MM:SS:'))
+        self.date_le = QLineEdit()
+        main_layout.addWidget(self.date_le)
+        self.commit_button = QPushButton('Сохранить')
+        self.commit_button.clicked.connect(self.commit)
+        main_layout.addWidget(self.commit_button)
+
+    def commit(self):
+        sobes_datetime = self.date_le.text()
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            print(f'''update zayavka set sobes_datetime='{sobes_datetime}' where id={self.parent.candidate_parent.zayavka_id}''')
+            cur.execute(f'''update zayavka set sobes_datetime='{sobes_datetime}' where id={self.parent.candidate_parent.zayavka_id}''')
+        self.close()
+
 class NewZametkaDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
@@ -119,7 +142,9 @@ class Candidat_big_widget(QWidget):
         #читается файл из бд
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
+            print('bef doc')
             cur.execute(f"""select doc from candidate where id={self.candidate_parent.id}""")
+            print('af doc')
             doc = cur.fetchall()[0][0]
             print(doc)
 
@@ -144,14 +169,16 @@ class Candidat_big_widget(QWidget):
     def make_otkaz_status(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update zayavka set status='otkaz' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
+            cur.execute(f'select status from zayavka where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}')
+            prev_status = cur.fetchall()[0][0]
+            cur.execute(f"""update zayavka set status='otkaz', prev_status='{prev_status}' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
             print('otkaz norm')
 
     def next_etap(self):
         cur_etap_index = self.etaps.index(self.candidate_parent.status)
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update zayavka set status='{self.etaps[cur_etap_index+1]}' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
+            cur.execute(f"""update zayavka set status='{self.etaps[cur_etap_index+1]}', sobes_datetime=NULL where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
             print('next norm')
 
     def return_to_resume(self):
@@ -186,14 +213,37 @@ class Candidate_menu_widget(QWidget):
         super().__init__()
         self.candidate_parent = candidate_parent
 
+        self.main_layout = QHBoxLayout()
+        self.setLayout(self.main_layout)
+
+
         layout = QVBoxLayout()
         layout.addWidget(QLabel(surname + ' ' + name))
         layout.addWidget(QLabel(str(age)))
         watched = 'просмотрено' if self.candidate_parent.watched == 1 else 'непросмотрено'
         self.watched_label = QLabel(watched)
         layout.addWidget(self.watched_label)
+        self.main_layout.addLayout(layout)
+        print('mmm')
 
-        self.setLayout(layout)
+        if self.candidate_parent.status == 'sobes':
+            with sqlite3.connect('database.db') as con:
+                cur = con.cursor()
+                print(f'''select sobes_datetime from zayavka where id={self.candidate_parent.zayavka_id}''')
+                cur.execute(f'''select sobes_datetime from zayavka where id={self.candidate_parent.zayavka_id}''')
+                #print(cur.fetchall()[0][0])
+                sobes_datetime = cur.fetchall()[0][0]
+                print(sobes_datetime)
+            if sobes_datetime != None:
+                self.main_layout.addWidget(QLabel('Собеседование \n'+sobes_datetime))
+            else:
+                self.make_sobes_but = QPushButton('Назначить собеседование')
+                self.make_sobes_but.clicked.connect(self.make_sobes)
+                self.main_layout.addWidget(self.make_sobes_but)
+
+    def make_sobes(self):
+        msd = Make_sobes_dialog(self)
+        msd.exec()
 
     def mouseReleaseEvent(self, event):
         if self.candidate_parent.watched == 0:
@@ -209,14 +259,18 @@ class Candidate_menu_widget(QWidget):
         """срабатывает при пкм по self, предоставляет функционал для удаления пользователя"""
         self.context_menu = QMenu(self)
         delete_act = self.context_menu.addAction("Удалить")
+        change_act = self.context_menu.addAction("Редактировать")
         delete_act.triggered.connect(self.delete_candidate)
+        change_act.triggered.connect(self.change_candidate)
         self.context_menu.exec(event.globalPos())
-
 
     def delete_candidate(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
             cur.execute(f'delete from zayavka where id={self.candidate_parent.zayavka_id}')
+
+"""    def change_candidate(self):
+        """
 
 #теперь это заявка
 class Candidate:
@@ -235,12 +289,17 @@ class Candidate:
         self.doc = res[4]
         self.email = res[5]
         self.tel = res[6]
+        print('ok7')
         self.watched = watched
+        print('ok8')
         self.status = status
+        print('ok9')
         self.zayavka_id = zayavka_id
         self.vacancy = vacancy #вакансия, в которой создается этот экземпляр Candidate (для того, чтобы менять Vacancy_window_part)
+        print('ok10')
+        print(self.__dict__)
         self.menu_widget = Candidate_menu_widget(self.name, self.surname, self.age, self)
-        print('can created')
+        print('can created', self.__dict__)
 
     def create_big_widget(self):
         #self.big_widget = Candidat_big_widget(self.name, self.surname, self.otchestvo, self.age, self.email, self.tel, self.doc, self)

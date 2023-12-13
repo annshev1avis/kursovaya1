@@ -289,12 +289,12 @@ class Vacancy_menu_widget(QWidget):
         super().__init__()
         #ссылка на главное окно, чтобы была возможность его изменять
         self.vacancy_parent = parent
-        #self.setStyleSheet('background: grey; border: 1px solid grey; border-radius: 5px;')
 
         #внешний вид
         layout = QVBoxLayout()
         layout.addWidget(QLabel(name))
         layout.addWidget(QLabel(end_date))
+
         self.setLayout(layout)
 
     def mouseReleaseEvent(self, event):
