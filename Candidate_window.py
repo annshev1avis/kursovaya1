@@ -1,11 +1,13 @@
 import sqlite3
 import sys
-from PyQt6.QtWidgets import QFileDialog, QApplication, QTableWidgetItem, QRadioButton, QMainWindow, QToolBar, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
+from PyQt6.QtWidgets import QMessageBox, QFileDialog, QApplication, QTableWidgetItem, QRadioButton, QMainWindow, QToolBar, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
 from PyQt6.QtGui import QAction
+import subprocess
+import tempfile
 
 #отображается в окне кандидата, в доступных вакансиях
 class User_vacancy_card(QWidget):
-    def __init__(self, candidate_id, vacancy_id, name, salary, graphic, location):
+    def __init__(self, candidate_id, vacancy_id, name, salary, graphic, location, parent):
         super().__init__()
         print(vacancy_id, name, salary, graphic, location)
         self.vacancy_id = vacancy_id
@@ -14,7 +16,10 @@ class User_vacancy_card(QWidget):
         self.salary = salary
         self.graphic = graphic
         self.location = location
+        self.parent = parent
+        self.init_UI()
 
+    def init_UI(self):
         self.main_layout = QHBoxLayout()
         self.setLayout(self.main_layout)
 
@@ -31,35 +36,45 @@ class User_vacancy_card(QWidget):
             cur.execute(f'''select * from zayavka where vacancy_id={self.vacancy_id} and candidate_id={self.candidate_id}''')
             res = cur.fetchall()
 
+        print(res)
         if len(res) == 0:
+            print('ok')
             self.ok_button = QPushButton('Откликнуться')
             self.ok_button.clicked.connect(self.accept)
             self.main_layout.addWidget(self.ok_button)
+            print('ok')
+        else:
+            print('not ok')
+            self.not_ok_button = QPushButton('Отозвать резюме')
+            self.not_ok_button.clicked.connect(self.cancel)
+            self.main_layout.addWidget(self.not_ok_button)
+            print('not ok')
 
     def accept(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
             cur.execute('''insert into zayavka(vacancy_id, candidate_id) values(?, ?)''', (self.vacancy_id, self.candidate_id))
             print('ok')
+        self.parent.update_all_data()
 
-"""class Profile(QWidget):
-    def __init__(self):"""
+    def cancel(self):
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            print(f'''delete from zayavka where vacancy_id={self.vacancy_id} and candidate_id={self.candidate_id}''')
+            cur.execute(f'''delete from zayavka where vacancy_id={self.vacancy_id} and candidate_id={self.candidate_id}''')
+        self.parent.update_all_data()
 
-
-#окно для роли Кандидат
-class Candidate_window(QWidget):
+# часть окна с информацией о кандидате
+class Profile(QWidget):
     def __init__(self, candidate_id):
         super().__init__()
+
         self.candidate_id = candidate_id
-        self.setGeometry(200, 200, 700, 350)
 
-        self.mainlayout = QHBoxLayout()
-        self.setLayout(self.mainlayout)
-
-
-        # часть окна с информацией о кандидате
         profile = QVBoxLayout()
         profile.addWidget(QLabel('Мой профиль'))
+        self.setLayout(profile)
+        self.setFixedWidth(350)
 
         # фамилия
         surname_l = QHBoxLayout()
@@ -69,7 +84,7 @@ class Candidate_window(QWidget):
         surname_l.addWidget(self.surname_le)
         profile.addLayout(surname_l)
 
-        #имя
+        # имя
         name_l = QHBoxLayout()
         name_l.addWidget(QLabel('Имя:'))
         self.name_le = QLineEdit()
@@ -77,7 +92,7 @@ class Candidate_window(QWidget):
         name_l.addWidget(self.name_le)
         profile.addLayout(name_l)
 
-        #отчество
+        # отчество
         otchestvo_l = QHBoxLayout()
         otchestvo_l.addWidget(QLabel('Отчество:'))
         self.otchestvo_le = QLineEdit()
@@ -85,7 +100,7 @@ class Candidate_window(QWidget):
         otchestvo_l.addWidget(self.otchestvo_le)
         profile.addLayout(otchestvo_l)
 
-        #возраст
+        # возраст
         age_l = QHBoxLayout()
         age_l.addWidget(QLabel('Возраст:'))
         self.age_le = QLineEdit()
@@ -93,7 +108,7 @@ class Candidate_window(QWidget):
         age_l.addWidget(self.age_le)
         profile.addLayout(age_l)
 
-        #email
+        # email
         email_l = QHBoxLayout()
         email_l.addWidget(QLabel('Email:'))
         self.email_le = QLineEdit()
@@ -101,7 +116,7 @@ class Candidate_window(QWidget):
         email_l.addWidget(self.email_le)
         profile.addLayout(email_l)
 
-        #телефон
+        # телефон
         tel_l = QHBoxLayout()
         tel_l.addWidget(QLabel('Телефон:'))
         self.tel_le = QLineEdit()
@@ -109,9 +124,9 @@ class Candidate_window(QWidget):
         tel_l.addWidget(self.tel_le)
         profile.addLayout(tel_l)
 
-        #кнопки про документ
+        # кнопки про документ
         but_l = QHBoxLayout()
-        self.view_CV_but = QPushButton('Посмотреть текцщее резюме')
+        self.view_CV_but = QPushButton('Посмотреть текущее резюме')
         self.view_CV_but.clicked.connect(self.view_CV)
         self.upload_CV_but = QPushButton('Загрузить новое резюме')
         self.upload_CV_but.clicked.connect(self.upload_CV)
@@ -119,7 +134,7 @@ class Candidate_window(QWidget):
         but_l.addWidget(self.upload_CV_but)
         profile.addLayout(but_l)
 
-        #кнопка изменить
+        # кнопка изменить
         self.just_layout = QHBoxLayout()
         self.update_can_but = QPushButton('Редактировать профиль')
         self.update_can_but.clicked.connect(self.update_can)
@@ -130,38 +145,24 @@ class Candidate_window(QWidget):
         profile.addLayout(self.just_layout)
 
         profile.addStretch()
-
-        #часть окна с вакансиями
-        vacancies = QVBoxLayout()
-        vacancies.addWidget(QLabel('Доступные вакансии'))
-        self.vacancies_table = QTableWidget()
-        self.vacancies_table.setColumnCount(1)
-        self.vacancies_table.verticalHeader().setVisible(False)
-        self.vacancies_table.horizontalHeader().setVisible(False)
-        self.vacancies_table.horizontalHeader().setStretchLastSection(True)
-        vacancies.addWidget(self.vacancies_table)
-
-        self.mainlayout.addLayout(profile)
-        self.mainlayout.addLayout(vacancies)
-
-        self.update_but = QPushButton('Обновить')
-        self.update_but.clicked.connect(self.update_all_data)
-        self.update_but.setFixedWidth(75)
-        self.mainlayout.addWidget(self.update_but)
-
-        #загрузка инфы
-        self.load_vacancies()
         self.load_candidate_data()
 
-    def view_CV(self):
-        pass
+    def load_candidate_data(self):
+        # получение данных о кандидате из БД
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            print(f'select * from candidat where id={self.candidate_id}')
+            cur.execute(f'select * from candidate where id={self.candidate_id}')
+            res = cur.fetchall()[0]
+            surname, name, otchestvo, age, email, tel = res[1], res[2], res[3], res[5], res[7], res[8]
+            print(res)
 
-    def upload_CV(self):
-        pass
-
-    def update_all_data(self):
-        self.load_vacancies()
-        self.load_candidate_data()
+        self.surname_le.setText(surname)
+        self.name_le.setText(name)
+        self.otchestvo_le.setText(otchestvo)
+        self.age_le.setText(str(age))
+        self.email_le.setText(email)
+        self.tel_le.setText(tel)
 
     def update_can(self):
         #делает редактируемыми поля с инфой
@@ -192,22 +193,92 @@ class Candidate_window(QWidget):
 
         print('hhh')
 
-    def load_candidate_data(self):
-        # получение данных о кандидате из БД
+    def view_CV(self):
+        print('VIEW CV')
+        # читается файл из бд
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            print(f'select * from candidat where id={self.candidate_id}')
-            cur.execute(f'select * from candidate where id={self.candidate_id}')
-            res = cur.fetchall()[0]
-            surname, name, otchestvo, age, email, tel = res[1], res[2], res[3], res[5], res[7], res[8]
-            print(res)
+            print('bef doc')
+            cur.execute(f"""select doc from candidate where id={self.candidate_id}""")
+            print('af doc')
+            doc = cur.fetchall()[0][0]
 
-        self.surname_le.setText(surname)
-        self.name_le.setText(name)
-        self.otchestvo_le.setText(otchestvo)
-        self.age_le.setText(str(age))
-        self.email_le.setText(email)
-        self.tel_le.setText(tel)
+        if doc != None:
+            print(1)
+            # создается временный файл из байтовых данных doc
+            temp_file = tempfile.NamedTemporaryFile(suffix='.pdf', delete=False)
+            temp_file.write(doc)
+            temp_file.close()
+            print(1)
+            # файл открывается в акробате
+            file_path = temp_file.name
+            app_path = 'C:/Program Files/Adobe/Acrobat DC/Acrobat/Acrobat.exe'
+            print(file_path)
+            try:
+                subprocess.Popen([app_path, file_path])
+            except FileNotFoundError:
+                QMessageBox.warning(self, 'Ошибка', 'Не удалось найти программу для открытия PDF.')
+        else:
+            print('error')
+            QMessageBox.warning(self, 'Ошибка', 'Нет файла')
+
+    def upload_CV(self):
+        print('UPLOAD CV')
+        filedialog = QFileDialog(self)
+        print(0)
+        filedialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
+        print(0)
+        if filedialog.exec():
+            print('here1')
+            fileNames = filedialog.selectedFiles()
+            print('here2')
+        file_path = fileNames[0]
+        print(file_path)
+        with open(file_path, 'rb') as file:
+            doc = file.read()
+        print(type(doc))
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            cur.execute(f'''update candidate set doc=? where id={self.candidate_id}''', (doc, ))
+
+
+#окно для роли Кандидат
+class Candidate_window(QWidget):
+    def __init__(self, candidate_id):
+        super().__init__()
+        self.candidate_id = candidate_id
+        self.setGeometry(200, 200, 800, 350)
+
+        self.mainlayout = QHBoxLayout()
+        self.setLayout(self.mainlayout)
+
+
+        self.profile_part = Profile(candidate_id)
+        self.mainlayout.addWidget(self.profile_part)
+
+        #часть окна с вакансиями
+        vacancies = QVBoxLayout()
+        vacancies.addWidget(QLabel('Доступные вакансии'))
+        self.vacancies_table = QTableWidget()
+        self.vacancies_table.setColumnCount(1)
+        self.vacancies_table.verticalHeader().setVisible(False)
+        self.vacancies_table.horizontalHeader().setVisible(False)
+        self.vacancies_table.horizontalHeader().setStretchLastSection(True)
+        vacancies.addWidget(self.vacancies_table)
+        self.mainlayout.addLayout(vacancies)
+
+        self.update_but = QPushButton('Обновить')
+        self.update_but.clicked.connect(self.update_all_data)
+        self.update_but.setFixedWidth(75)
+        self.mainlayout.addWidget(self.update_but)
+
+        #загрузка инфы
+        self.update_all_data()
+
+    def update_all_data(self):
+        self.load_vacancies()
+        self.profile_part.load_candidate_data()
+
 
     def load_vacancies(self):
         print('*')
@@ -219,7 +290,7 @@ class Candidate_window(QWidget):
 
         for vac in res:
             print((self.candidate_id, vac[0], vac[1], vac[4], vac[5], vac[6]))
-        vacancies_lst = [User_vacancy_card(self.candidate_id, vac[0], vac[1], vac[4], vac[5], vac[6]) for vac in res]
+        vacancies_lst = [User_vacancy_card(self.candidate_id, vac[0], vac[1], vac[4], vac[5], vac[6], self) for vac in res]
         print('*')
         self.vacancies_table.setRowCount(len(vacancies_lst))
         for i, vac in enumerate(vacancies_lst):

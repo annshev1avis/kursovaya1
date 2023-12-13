@@ -76,13 +76,18 @@ class Registration(QWidget):
         filedialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
         print(0)
         if filedialog.exec():
+            print('here1')
             fileNames = filedialog.selectedFiles()
+            print('here2')
         file_path = fileNames[0]
-        with open(file_path) as file:
+        print(file_path)
+        with open(file_path, 'rb') as file:
             self.doc = file.read()
+
 
     def create_candidate(self):
         doc = getattr(self, 'doc', None)
+        print(doc, self.doc)
         name, surname, otchestvo, age, email, tel, password = self.name_lineedit.text(), self.surname_lineedit.text(), \
             self.otchestvo_lineedit.text(), self.age_lineedit.text(), self.email_lineedit.text(), \
             self.tel_lineedit.text(), self.password_lineedit.text()

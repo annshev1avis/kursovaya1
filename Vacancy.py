@@ -4,6 +4,74 @@ from PyQt6.QtWidgets import QFileDialog, QMenu, QComboBox, QSpacerItem, QSizePol
 from Candidat import Candidate
 import sqlite3 as sq
 
+class Update_vacancy_dialog(QDialog):
+    def __init__(self, parent):
+        super().__init__(parent)
+        print('==')
+        self.parent = parent
+        main_layout = QVBoxLayout()
+        self.setLayout(main_layout)
+
+        l_name = QHBoxLayout()
+        l_name.addWidget(QLabel('Название:'))
+        self.name_le = QLineEdit()
+        l_name.addWidget(self.name_le)
+        main_layout.addLayout(l_name)
+
+        l_enddate = QHBoxLayout()
+        l_enddate.addWidget(QLabel('Дата закрытия yyyy-mm-dd:'))
+        self.enddate_le = QLineEdit()
+        l_enddate.addWidget(self.enddate_le)
+        main_layout.addLayout(l_enddate)
+
+        l_salary = QHBoxLayout()
+        l_salary.addWidget(QLabel('Зарплата:'))
+        self.salary_le = QLineEdit()
+        l_salary.addWidget(self.salary_le)
+        main_layout.addLayout(l_salary)
+
+        l_graphic = QHBoxLayout()
+        l_graphic.addWidget(QLabel('График:'))
+        self.graphic_le = QLineEdit()
+        l_graphic.addWidget(self.graphic_le)
+        main_layout.addLayout(l_graphic)
+
+        l_location = QHBoxLayout()
+        l_location.addWidget(QLabel('Локация:'))
+        self.location_le = QLineEdit()
+        l_location.addWidget(self.location_le)
+        main_layout.addLayout(l_location)
+
+        ok_but = QPushButton('Сохранить')
+        ok_but.clicked.connect(self.save_changes)
+        main_layout.addWidget(ok_but)
+
+        self.load_data()
+
+
+    def load_data(self):
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            print(f'''select name, end_date, salary, graphic, location from vacancy where id={self.parent.vacancy_parent.id}''')
+            cur.execute(f'''select name, end_date, salary, graphic, location from vacancy where id={self.parent.vacancy_parent.id}''')
+            print('==')
+            name, end_date, salary, graphic, location = cur.fetchall()[0]
+            print('33')
+        self.name_le.setText(name)
+        self.enddate_le.setText(end_date)
+        self.salary_le.setText(str(salary))
+        self.graphic_le.setText(graphic)
+        self.location_le.setText(location)
+
+    def save_changes(self):
+        name, end_date, salary, graphic, location = self.name_le.text(), self.enddate_le.text(), self.salary_le.text(), \
+            self.graphic_le.text(), self.location_le.text()
+
+        with sqlite3.connect('database.db') as con:
+            cur = con.cursor()
+            cur.execute(f'''update vacancy set name='{name}', end_date='{end_date}', salary={salary}, 
+            graphic='{graphic}', location='{location}' where id={self.parent.vacancy_parent.id}''')
+        self.close()
 
 class New_candidate_dialog(QDialog):
     def __init__(self, parent):
@@ -73,9 +141,12 @@ class New_candidate_dialog(QDialog):
         print(0)
         if filedialog.exec():
             fileNames = filedialog.selectedFiles()
+            print(fileNames)
         file_path = fileNames[0]
         with open(file_path) as file:
+            print(0)
             self.doc = file.read()
+            print(0)
 
     def create_candidate(self):
         doc = getattr(self, 'doc', None)
@@ -306,10 +377,11 @@ class Vacancy_menu_widget(QWidget):
         self.vacancy_parent.main_window.main_layout.addWidget(self.vacancy_parent.window_part)
 
     def contextMenuEvent(self, event):
-        print('!!!')
         self.context_menu = QMenu(self)
-        print('=')
-        print(self.vacancy_parent.status)
+
+        update_act = self.context_menu.addAction('Изменить')
+        update_act.triggered.connect(self.update_vacancy)
+
         if self.vacancy_parent.status == 'open':
             change_status_act = self.context_menu.addAction('Закрыть')
             change_status_act.triggered.connect(self.close_vacancy)
@@ -320,6 +392,10 @@ class Vacancy_menu_widget(QWidget):
         delete_act = self.context_menu.addAction('Удалить')
         delete_act.triggered.connect(self.delete_vacancy)
         self.context_menu.exec(event.globalPos())
+
+    def update_vacancy(self):
+        dlg = Update_vacancy_dialog(self)
+        dlg.exec()
 
     def close_vacancy(self):
         with sqlite3.connect('database.db') as con:

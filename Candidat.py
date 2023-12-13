@@ -5,6 +5,7 @@ import tempfile
 from PyQt6.QtCore import QProcess
 import os
 import subprocess
+from Candidate_window import Profile
 
 class Make_sobes_dialog(QDialog):
     def __init__(self, parent):
@@ -269,8 +270,9 @@ class Candidate_menu_widget(QWidget):
             cur = con.cursor()
             cur.execute(f'delete from zayavka where id={self.candidate_parent.zayavka_id}')
 
-"""    def change_candidate(self):
-        """
+    def change_candidate(self):
+        self.prof = Profile(self.candidate_parent.id)
+        self.prof.show()
 
 #теперь это заявка
 class Candidate:
