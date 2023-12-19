@@ -70,24 +70,17 @@ class Registration(QWidget):
         main_layout.addWidget(self.ok_button)
 
     def upload_resume(self):
-        print('upload_resume')
         filedialog = QFileDialog(self)
-        print(0)
         filedialog.setFileMode(QFileDialog.FileMode.ExistingFiles)
-        print(0)
         if filedialog.exec():
-            print('here1')
             fileNames = filedialog.selectedFiles()
-            print('here2')
         file_path = fileNames[0]
-        print(file_path)
         with open(file_path, 'rb') as file:
             self.doc = file.read()
 
 
     def create_candidate(self):
         doc = getattr(self, 'doc', None)
-        print(doc, self.doc)
         name, surname, otchestvo, age, email, tel, password = self.name_lineedit.text(), self.surname_lineedit.text(), \
             self.otchestvo_lineedit.text(), self.age_lineedit.text(), self.email_lineedit.text(), \
             self.tel_lineedit.text(), self.password_lineedit.text()
@@ -114,7 +107,8 @@ class Registration(QWidget):
                 cur = con.cursor()
                 print((surname, name, otchestvo, password, age, doc, email, tel))
                 cur.execute(f'''insert into candidate (surname, name, otchestvo, password, age, doc, email, tel) 
-                                    values(?, ?, ?, ?, ?, ?, ?, ?)''', (surname, name, otchestvo, password, age, doc, email, tel))
+                                    values(?, ?, ?, ?, ?, ?, ?, ?)''', (surname, name, otchestvo, password, age,
+                                                                        doc, email, tel))
         else:
             with sqlite3.connect('database.db') as con:
                 cur = con.cursor()

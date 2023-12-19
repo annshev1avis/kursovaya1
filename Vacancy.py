@@ -336,17 +336,12 @@ class Vacancy_window_part(QWidget):
 
         with sq.connect('database.db') as con:
             cur = con.cursor()
-            print('here')
-            cur.execute(f"select candidate_id, watched, status, id from zayavka where status='{status}' and vacancy_id={self.vacancy_parent.id}")
-            print('no crash')
+            cur.execute(f"select candidate_id, watched, status, id from zayavka where status='{status}' "
+                        f"and vacancy_id={self.vacancy_parent.id}")
             candidates_lst = cur.fetchall()
-            print(candidates_lst)
 
-        print('+')
         candidates_lst = [Candidate(can[0], can[1], can[2], can[3], self.vacancy_parent) for can in candidates_lst]
-        print('+')
         candidates_lst = sorting(candidates_lst)
-
 
         self.candidates.setRowCount(len(candidates_lst))
         for i, c in enumerate(candidates_lst):

@@ -1,6 +1,7 @@
 import sqlite3
 import sys
-from PyQt6.QtWidgets import QFileDialog, QApplication, QTableWidgetItem, QRadioButton, QMainWindow, QToolBar, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
+from PyQt6.QtWidgets import QFileDialog, QApplication, QTableWidgetItem, QRadioButton, QMainWindow, QToolBar, QWidget, QLabel, QLineEdit, QPushButton, \
+    QVBoxLayout, QDialog, QTableWidget, QTableWidgetItem, QHBoxLayout
 from Vacancy import Vacancy
 import sqlite3 as sq
 from PyQt6.QtGui import QAction

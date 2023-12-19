@@ -6,6 +6,7 @@ from HR_window import RealMainWindow
 from Candidate_window import Candidate_window
 from Registration import Registration
 
+
 class Authorithation(QWidget):
     def __init__(self):
         super().__init__()
@@ -29,31 +30,30 @@ class Authorithation(QWidget):
         layout.addWidget(self.password)
         layout.addWidget(self.enter_button)
         layout.addWidget(self.reg_button)
-        layout.addWidget(QLabel('чтобы войти как hr: hr, hr, hr'))
-        layout.addWidget(QLabel('чтобы войти как кандидат: Маус, Микки, 1'))
 
         self.setLayout(layout)
 
     def enter(self):
         surname, name, password = self.surname.text(), self.name.text(), self.password.text()
-        print(surname, name, password)
 
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f'''select * from candidate where surname='{surname}' and name='{name}' and password='{password}' ''')
+            cur.execute(f'''select * from candidate where surname='{surname}' and name='{name}' and 
+                            password='{password}' ''')
             res = cur.fetchall()
-            print(res)
 
+        #если кандидат найден в БД
         if len(res) > 0:
-            print('id', res[0][0])
             self.candidate_window = Candidate_window(res[0][0])
             self.candidate_window.show()
             self.close()
+
+        #вход для HR
         elif surname=='' and name=='' and password=='':
             self.main_window = RealMainWindow()
             self.main_window.show()
             self.close()
 
     def reg(self):
-        self.reg = Registration()
-        self.reg.show()
+        self.registr = Registration()
+        self.registr.show()

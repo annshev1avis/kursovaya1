@@ -248,11 +248,9 @@ class Candidate_window(QWidget):
         super().__init__()
         self.candidate_id = candidate_id
         self.setGeometry(200, 200, 800, 350)
-
+        self.setWindowTitle('Мой профиль')
         self.mainlayout = QHBoxLayout()
         self.setLayout(self.mainlayout)
-
-
         self.profile_part = Profile(candidate_id)
         self.mainlayout.addWidget(self.profile_part)
 
@@ -281,19 +279,15 @@ class Candidate_window(QWidget):
 
 
     def load_vacancies(self):
-        print('*')
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
             cur.execute('''select * from vacancy where status='open' ''')
-            print('*')
             res = cur.fetchall()
 
-        for vac in res:
-            print((self.candidate_id, vac[0], vac[1], vac[4], vac[5], vac[6]))
-        vacancies_lst = [User_vacancy_card(self.candidate_id, vac[0], vac[1], vac[4], vac[5], vac[6], self) for vac in res]
-        print('*')
+        vacancies_lst = [User_vacancy_card(self.candidate_id, vac[0], vac[1], vac[4], vac[5], vac[6], self)
+                         for vac in res]
         self.vacancies_table.setRowCount(len(vacancies_lst))
         for i, vac in enumerate(vacancies_lst):
-            print('*')
             self.vacancies_table.setCellWidget(i, 0, vac)
             self.vacancies_table.setRowHeight(i, 190)
+

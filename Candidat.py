@@ -143,11 +143,8 @@ class Candidat_big_widget(QWidget):
         #читается файл из бд
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            print('bef doc')
             cur.execute(f"""select doc from candidate where id={self.candidate_parent.id}""")
-            print('af doc')
             doc = cur.fetchall()[0][0]
-            print(doc)
 
         if doc != None:
             #создается временный файл из байтовых данных doc
@@ -158,49 +155,45 @@ class Candidat_big_widget(QWidget):
             #файл открывается в акробате
             file_path = temp_file.name
             app_path = 'C:/Program Files/Adobe/Acrobat DC/Acrobat/Acrobat.exe'
-            print(file_path)
             try:
                 subprocess.Popen([app_path, file_path])
             except FileNotFoundError:
                 QMessageBox.warning(self, 'Ошибка', 'Не удалось найти программу для открытия PDF.')
         else:
-            print('error')
             QMessageBox.warning(self, 'Ошибка', 'Нет файла')
 
     def make_otkaz_status(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f'select status from zayavka where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}')
+            cur.execute(f'select status from zayavka where candidate_id={self.candidate_parent.id} '
+                        f'and vacancy_id={self.candidate_parent.vacancy.id}')
             prev_status = cur.fetchall()[0][0]
-            cur.execute(f"""update zayavka set status='otkaz', prev_status='{prev_status}' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
-            print('otkaz norm')
+            cur.execute(f"""update zayavka set status='otkaz', prev_status='{prev_status}' 
+            where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
 
     def next_etap(self):
         cur_etap_index = self.etaps.index(self.candidate_parent.status)
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update zayavka set status='{self.etaps[cur_etap_index+1]}', sobes_datetime=NULL where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
-            print('next norm')
+            cur.execute(f"""update zayavka set status='{self.etaps[cur_etap_index+1]}', sobes_datetime=NULL 
+            where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
 
     def return_to_resume(self):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f"""update zayavka set status='resume' where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}""")
-            print('ret norm')
+            cur.execute(f"""update zayavka set status='resume' where candidate_id={self.candidate_parent.id} and 
+            vacancy_id={self.candidate_parent.vacancy.id}""")
+
 
     def load_zametki(self):
-        print('=')
         print(self.candidate_parent.id)
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
             cur.execute(f"""select id, text from zametka where zayavka_id={self.candidate_parent.zayavka_id}""")
             zam_lst = cur.fetchall()
 
-        print(zam_lst)
-
         self.zametki_table.setRowCount(len(zam_lst))
         for i, zam in enumerate(zam_lst):
-            print(zam[0])
             self.zametki_table.setCellWidget(i, 0, Zametka_widget(zam[0], zam[1]))
 
     def new_zametka(self):
@@ -252,7 +245,8 @@ class Candidate_menu_widget(QWidget):
             self.watched_label.setText('просмотрено')
             with sqlite3.connect('database.db') as con:
                 cur = con.cursor()
-                cur.execute(f'update zayavka set watched=1 where candidate_id={self.candidate_parent.id} and vacancy_id={self.candidate_parent.vacancy.id}')
+                cur.execute(f'update zayavka set watched=1 where candidate_id={self.candidate_parent.id} and '
+                            f'vacancy_id={self.candidate_parent.vacancy.id}')
         big_widget = self.candidate_parent.create_big_widget()
         self.candidate_parent.vacancy.window_part.insert_big_widget(big_widget)
 
@@ -279,9 +273,9 @@ class Candidate:
     def __init__(self, candidate_id, watched, status, zayavka_id, vacancy):
         with sqlite3.connect('database.db') as con:
             cur = con.cursor()
-            cur.execute(f'''select surname, name, otchestvo, age, doc, email, tel from candidate where id={candidate_id}''')
+            cur.execute(f'''select surname, name, otchestvo, age, doc, email, tel from candidate where 
+            id={candidate_id}''')
             res = cur.fetchall()[0]
-            print(res)
 
         self.id = candidate_id   #id кандидата в бд, для взаимодействия с бд
         self.surname = res[0]
@@ -291,17 +285,14 @@ class Candidate:
         self.doc = res[4]
         self.email = res[5]
         self.tel = res[6]
-        print('ok7')
         self.watched = watched
-        print('ok8')
         self.status = status
-        print('ok9')
         self.zayavka_id = zayavka_id
-        self.vacancy = vacancy #вакансия, в которой создается этот экземпляр Candidate (для того, чтобы менять Vacancy_window_part)
-        print('ok10')
+        # вакансия, в которой создается этот экземпляр Candidate (для того, чтобы менять Vacancy_window_part)
+        self.vacancy = vacancy
         print(self.__dict__)
         self.menu_widget = Candidate_menu_widget(self.name, self.surname, self.age, self)
-        print('can created', self.__dict__)
+
 
     def create_big_widget(self):
         #self.big_widget = Candidat_big_widget(self.name, self.surname, self.otchestvo, self.age, self.email, self.tel, self.doc, self)
